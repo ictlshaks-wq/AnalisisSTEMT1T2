@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Analisis STEM T1 & T2 - JPN Pahang</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root { --primary-color: #1a73e8; --bg-color: #f4f7f9; --accent-color: #ffca28; }
+        body { background-color: var(--bg-color); font-family: 'Segoe UI', system-ui, sans-serif; }
+        
+        .dashboard-header { 
+            background: linear-gradient(135deg, #1a73e8, #0d47a1); 
+            color: white; 
+            padding: 30px 0 45px 0; 
+            border-bottom: 5px solid var(--accent-color); 
+            position: relative; 
+        }
+        
+        .header-attribution {
+            position: absolute;
+            bottom: 8px;
+            right: 20px;
+            font-size: 0.6rem;
+            opacity: 0.8;
+            font-style: italic;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .card { border: none; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.08); margin-bottom: 25px; }
+        
+        .stat-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 1rem; 
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 992px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 576px) { .stat-grid { grid-template-columns: 1fr; } }
+
+        .stat-card { 
+            text-align: center; 
+            padding: 15px; 
+            border-top: 5px solid var(--primary-color); 
+            height: 100%; 
+            transition: all 0.2s; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 20px rgba(0,0,0,0.15); }
+        .stat-card.active { border: 2px solid var(--primary-color); border-top-width: 8px; background: #e8f0fe; }
+        
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--primary-color); line-height: 1.1; }
+        .stat-label { color: #444; font-size: 0.6rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.3px; margin-top: 8px; margin-bottom: 8px; display: block; line-height: 1.2; }
+        
+        .chart-title { font-weight: 700; color: #1a73e8; margin-bottom: 15px; border-left: 6px solid var(--accent-color); padding-left: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .scroll-area { max-height: 400px; overflow-y: auto; border-radius: 8px; border: 1px solid #eee; }
+        
+        .category-item { 
+            padding: 10px 15px; margin-bottom: 8px; background: #fff; border: 1px solid #dee2e6; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+        }
+        .category-item.active { background: #1a73e8 !important; color: #fff !important; border-color: #1a73e8; }
+
+        .btn-export { background-color: #34a853; color: white; font-weight: bold; border-radius: 8px; }
+        .student-table-container { background: #fff; border-radius: 12px; border: 1px solid #dee2e6; margin-top: 20px; display: none; }
+        
+        .portal-control { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 15px; 
+            margin-top: -30px; 
+            z-index: 100; 
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-border text-primary" role="status"></div>
+    <div class="mt-2 fw-bold">Memproses Data...</div>
+</div>
+
+<div class="dashboard-header text-center shadow-sm">
+    <div class="container">
+        <h1>📊 Portal Analisis STEM Pahang T1 & T2</h1>
+        <p class="lead text-white-50">Unit TMK, Sektor Pembelajaran, JPN Pahang</p>
+    </div>
+    <div class="header-attribution">
+        APLIKASI INI DIBANGUNKAN OLEH UNIT TMK, SEKTOR PEMBELAJARAN, JPN PAHANG 2026
+    </div>
+</div>
+
+<div class="container">
+    <!-- Menu Pilih Data -->
+    <div class="portal-control shadow-sm mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-6 mb-3 mb-md-0 border-end">
+                <label class="fw-bold text-secondary small mb-2 text-uppercase">Pilih Set Data Berpusat:</label>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary fw-bold flex-grow-1" onclick="loadFromGithub('T1')">TINGKATAN 1</button>
+                    <button class="btn btn-primary fw-bold flex-grow-1" onclick="loadFromGithub('T2')">TINGKATAN 2</button>
+                </div>
+                <small class="text-muted mt-2 d-block">Data akan ditarik secara langsung daripada repositori GitHub.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="fw-bold text-secondary small mb-2 text-uppercase">Atau Muat Naik Fail Tempatan:</label>
+                <div class="input-group input-group-sm">
+                    <input type="file" class="form-control" id="excelInput" accept=".csv, .xlsx">
+                    <button class="btn btn-outline-primary fw-bold" type="button" id="loadBtn">PROSES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pilihan Tingkatan (Selepas data dimuatkan) -->
+    <div id="tingkatanControl" class="text-center mb-4" style="display: none;">
+        <div class="btn-group shadow-sm" role="group">
+            <button type="button" class="btn btn-outline-primary active" id="btnSemua" onclick="filterByForm('SEMUA')">KESELURUHAN</button>
+            <button type="button" class="btn btn-outline-primary" id="btnT1" onclick="filterByForm('T1')">TINGKATAN 1</button>
+            <button type="button" class="btn btn-outline-primary" id="btnT2" onclick="filterByForm('T2')">TINGKATAN 2</button>
+        </div>
+        <div id="filterStatusLabel" class="mt-2 fw-bold text-primary small"></div>
+    </div>
+
+    <!-- Statistik Utama (8 Kotak) -->
+    <div class="stat-grid" id="statGridContainer" style="display:none;">
+        <div class="card stat-card" onclick="filterByForm('SEMUA')"><span class="stat-value" id="valTotal">0</span><span class="stat-label">Jumlah Murid</span><span class="badge bg-primary" id="pctTotal">100%</span></div>
+        <div class="card stat-card" style="border-top-color: #6a1b9a;" onclick="updateFilterView('LAYAK STEM (A 2MP)')"><span class="stat-value" id="valLayakA" style="color: #6a1b9a;">0</span><span class="stat-label">Layak STEM (A 2MP)</span><span class="badge bg-dark" id="pctLayakA">0%</span></div>
+        <div class="card stat-card" style="border-top-color: #00897b;" onclick="updateFilterView('SALAH 1 MP A (1 MP C KE BAWAH)')"><span class="stat-value" id="valSalahSatuA" style="color: #00897b;">0</span><span class="stat-label">Salah 1 MP A (1 MP C Ke Bawah)</span><span class="badge bg-info" id="pctSalahSatuA">0%</span></div>
+        <div class="card stat-card" style="border-top-color: #2e7d32;" onclick="updateFilterView('LAYAK STEM (C KE ATAS)')"><span class="stat-value text-success" id="valLayak">0</span><span class="stat-label">Layak STEM (C Ke Atas)</span><span class="badge bg-success" id="pctLayak">0%</span></div>
+        
+        <div class="card stat-card" style="border-top-color: #f9a825;" onclick="updateFilterView('NEAR MISS (1 MP BAWAH MINIMUM)')"><span class="stat-value text-warning" id="valNearMiss">0</span><span class="stat-label">Near Miss (1 MP)</span><span class="badge bg-warning text-dark" id="pctNearMiss">0%</span></div>
+        <div class="card stat-card" style="border-top-color: #fd7e14;" onclick="updateFilterView('CAPAI MINIMUM (D,E)')"><span class="stat-value text-orange" id="valMinimum" style="color: #fd7e14;">0</span><span class="stat-label">Capai Minimum (D,E)</span><span class="badge bg-secondary" id="pctMinimum">0%</span></div>
+        <div class="card stat-card" style="border-top-color: #c62828;" onclick="updateFilterView('TIDAK MENGUASAI (F/G)')"><span class="stat-value text-danger" id="valKritis">0</span><span class="stat-label">Tidak Menguasai (F)</span><span class="badge bg-danger" id="pctKritis">0%</span></div>
+        <div class="card stat-card" style="border-top-color: #757575;" onclick="updateFilterView('TIDAK DITAKSIR / TIADA DATA')"><span class="stat-value text-muted" id="valTiada">0</span><span class="stat-label">Tidak Ditaksir / X</span><span class="badge bg-light text-dark" id="pctTiada">0%</span></div>
+    </div>
+
+    <!-- Analisis Gred -->
+    <div class="row mt-2" id="subjectAnalysisSection" style="display:none;">
+        <div class="col-lg-12">
+            <div class="card p-4 shadow-sm">
+                <h5 class="chart-title">Analisis Kekuatan Mata Pelajaran (MT vs SN)</h5>
+                <div id="subjectGradesChart" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analisis Pemetaan -->
+    <div class="row mt-2">
+        <div class="col-md-5">
+            <div class="card p-4 h-100 shadow-sm">
+                <h5 class="chart-title">Kategori Unjuran</h5>
+                <div class="scroll-area pe-2">
+                    <ul class="category-list" id="mappingList"></ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7">
+            <div class="card p-4 h-100 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="chart-title mb-0" id="tableMainTitle">Daftar Sekolah</h5>
+                    <div id="filterIndicator" class="badge bg-primary rounded-pill px-3 py-2">Keseluruhan</div>
+                </div>
+                <div class="scroll-area border rounded bg-white">
+                    <table class="table table-hover align-middle mb-0" id="schoolTable">
+                        <thead class="table-light">
+                            <tr><th style="width: 75%;">Nama Sekolah</th><th class="text-center">Bil. Murid</th></tr>
+                        </thead>
+                        <tbody id="schoolTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <div id="totalSchoolCount" class="small fw-bold text-primary"></div>
+                    <button id="exportBtn" class="btn btn-export btn-sm" style="display:none;" onclick="exportFilteredData()">📥 Eksport</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graf PPD -->
+    <div id="categoryAnalysisRow" class="row category-analysis-box mt-4">
+        <div class="col-12">
+            <div class="card p-4 shadow-sm" style="border-top: 5px solid var(--accent-color);">
+                <h5 class="chart-title" id="categoryPpdTitle">Prestasi PPD Bagi Kategori</h5>
+                <div id="categoryPpdChart" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Senarai Murid -->
+    <div id="studentDetailSection" class="student-table-container p-4 mb-4 shadow-lg">
+        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+            <h5 class="mb-0 text-dark fw-bold" id="studentTableTitle">Senarai Murid</h5>
+            <button class="btn btn-close btn-sm" onclick="closeStudentSection()"></button>
+        </div>
+        <div class="table-responsive" style="max-height: 450px;">
+            <table class="table table-sm table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr><th>Nama Murid</th><th>No. KP</th><th>Tingkatan</th><th>Keputusan MT/SN</th><th>Status Unjuran</th></tr>
+                </thead>
+                <tbody id="studentTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Graf Bawah -->
+    <div class="row" id="bottomChartsSection" style="display:none;">
+        <div class="col-md-4"><div class="card p-4 shadow-sm"><h5 class="chart-title" id="genderTitle">Jantina</h5><div id="genderChart" style="height: 300px;"></div></div></div>
+        <div class="col-md-4"><div class="card p-4 shadow-sm"><h5 class="chart-title" id="ppdTitle">Daerah (PPD)</h5><div id="ppdChart" style="height: 300px;"></div></div></div>
+        <div class="col-md-4"><div class="card p-4 shadow-sm"><h5 class="chart-title" id="insTitle">Jenis Sekolah</h5><div id="insChart" style="height: 300px;"></div></div></div>
+    </div>
+</div>
+
+<footer class="text-center py-4 text-muted border-top mt-5 bg-white">
+    <p class="mb-0 small">Dashboard STEM Pahang v5.0 | Portal Berasaskan Awan</p>
+</footer>
+
+<script>
+    /**
+     * KONFIGURASI GITHUB:
+     * Tukar URL di bawah kepada URL 'RAW' fail anda di GitHub.
+     */
+    const GITHUB_FILES = {
+        'T1': 'https://raw.githubusercontent.com/USERNAME/REPO/main/UNJURAN%20STEM%20T1%202025.xlsx',
+        'T2': 'https://raw.githubusercontent.com/USERNAME/REPO/main/UNJURAN%20STEM%20T2-2025.xlsx'
+    };
+
+    let fullRawData = [];
+    let activeData = [];
+    let categoryFilteredData = [];
+    
+    const mappingLabels = [
+        'LAYAK STEM (A 2MP)',
+        'SALAH 1 MP A (1 MP C KE BAWAH)',
+        'LAYAK STEM (C KE ATAS)',
+        'NEAR MISS (1 MP BAWAH MINIMUM)',
+        'CAPAI MINIMUM (D,E)',
+        'TIDAK MENGUASAI (F/G)',
+        'TIDAK DITAKSIR / TIADA DATA'
+    ];
+
+    // Fungsi Utama: Autoload dari GitHub
+    async function loadFromGithub(type) {
+        const url = GITHUB_FILES[type];
+        if(url.includes('USERNAME')) return alert('Sila kemaskini URL GitHub anda dalam kod index.html dahulu!');
+
+        showLoading(true);
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Gagal memuat turun fail.');
+            const arrayBuffer = await response.arrayBuffer();
+            processWorkbook(arrayBuffer, `GITHUB_${type}`);
+        } catch (error) {
+            alert('Ralat: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', () => {
+        const fileInput = document.getElementById('excelInput');
+        const file = fileInput.files[0];
+        if (!file) return alert('Pilih fail dahulu!');
+        
+        showLoading(true);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            processWorkbook(e.target.result, file.name);
+            showLoading(false);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    function processWorkbook(buffer, originName) {
+        fullRawData = [];
+        const workbook = XLSX.read(new Uint8Array(buffer), {type: 'array'});
+        let combined = [];
+        
+        workbook.SheetNames.forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            let json = XLSX.utils.sheet_to_json(sheet);
+            
+            let processed = json.map(row => {
+                let clean = {};
+                Object.keys(row).forEach(k => clean[k.trim()] = row[k]);
+                
+                const rawTing = String(clean['THN_TING'] || "").toUpperCase();
+                const rawTab = String(sheetName).toUpperCase();
+                const fullContext = (rawTing + " " + rawTab + " " + originName.toUpperCase());
+                
+                let detectedTing = "TIDAK PASTI";
+                if (/\b(T2|DUA|2)\b/.test(fullContext)) detectedTing = "TINGKATAN 2";
+                else if (/\b(T1|SATU|1)\b/.test(fullContext)) detectedTing = "TINGKATAN 1";
+
+                clean['_DETECTED_TING'] = detectedTing;
+                clean['_SOURCE'] = originName;
+
+                const res = String(clean['KEPUTUSAN MT DAN SAINS'] || "").trim();
+                const mathMatch = res.match(/MAT \(([A-G])\)/);
+                const sciMatch = res.match(/SAINS \(([A-G])\)/);
+                
+                let mg = mathMatch ? mathMatch[1] : null;
+                let sg = sciMatch ? sciMatch[1] : null;
+                if (mg === 'G') mg = 'F'; if (sg === 'G') sg = 'F';
+
+                const isMissing = (v) => !v || v === "" || v === "X" || v.toLowerCase().includes('tidak ditaksir') || v.toLowerCase().includes('tiada');
+                if (!mg) mg = 'TD'; if (!sg) sg = 'TD';
+                if (res.includes('(X)') || isMissing(res)) { mg = 'TD'; sg = 'TD'; }
+
+                clean['_MATH_GRED'] = mg;
+                clean['_SCI_GRED'] = sg;
+
+                let kategori = 'TIDAK DITAKSIR / TIADA DATA';
+                const kredit = ['A', 'B', 'C'];
+                const minimum = ['D', 'E'];
+                const gagal = ['F'];
+                const bawahMin = ['C', 'D', 'E', 'F', 'TD'];
+
+                if (mg !== 'TD' && sg !== 'TD') {
+                    if (mg === 'A' && sg === 'A') kategori = 'LAYAK STEM (A 2MP)';
+                    else if ((mg === 'A' && bawahMin.includes(sg)) || (sg === 'A' && bawahMin.includes(mg))) kategori = 'SALAH 1 MP A (1 MP C KE BAWAH)';
+                    else if (kredit.includes(mg) && kredit.includes(sg)) kategori = 'LAYAK STEM (C KE ATAS)';
+                    else if ((kredit.includes(mg) && minimum.includes(sg)) || (kredit.includes(sg) && minimum.includes(mg))) kategori = 'NEAR MISS (1 MP BAWAH MINIMUM)';
+                    else if (minimum.includes(mg) && minimum.includes(sg)) kategori = 'CAPAI MINIMUM (D,E)';
+                    else if (gagal.includes(mg) || gagal.includes(sg)) kategori = 'TIDAK MENGUASAI (F/G)';
+                } else { kategori = 'TIDAK DITAKSIR / TIADA DATA'; }
+                
+                clean['KATEGORI_STEM'] = kategori;
+                return clean;
+            });
+            combined = combined.concat(processed);
+        });
+
+        fullRawData = combined;
+        updateUI();
+        filterByForm('SEMUA');
+    }
+
+    function updateUI() {
+        document.getElementById('tingkatanControl').style.display = 'block';
+        document.getElementById('statGridContainer').style.display = 'grid';
+        document.getElementById('subjectAnalysisSection').style.display = 'block';
+        document.getElementById('bottomChartsSection').style.display = 'flex';
+        document.getElementById('uploadSummary').style.display = 'block';
+        
+        const t1 = fullRawData.filter(d => d._DETECTED_TING === "TINGKATAN 1").length;
+        const t2 = fullRawData.filter(d => d._DETECTED_TING === "TINGKATAN 2").length;
+        document.getElementById('summaryText').innerText = `Data berjaya dimuatkan.`;
+        document.getElementById('auditText').innerText = `Jumlah dikesan: T1 (${t1}), T2 (${t2}).`;
+        document.getElementById('badgeT1Count').innerText = `T1: ${t1}`;
+        document.getElementById('badgeT2Count').innerText = `T2: ${t2}`;
+    }
+
+    function filterByForm(mode) {
+        document.getElementById('btnSemua').classList.remove('active');
+        document.getElementById('btnT1').classList.remove('active');
+        document.getElementById('btnT2').classList.remove('active');
+        document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+
+        if (mode === 'SEMUA') { document.getElementById('btnSemua').classList.add('active'); activeData = fullRawData; }
+        else if (mode === 'T1') { document.getElementById('btnT1').classList.add('active'); activeData = fullRawData.filter(d => d._DETECTED_TING === "TINGKATAN 1"); }
+        else if (mode === 'T2') { document.getElementById('btnT2').classList.add('active'); activeData = fullRawData.filter(d => d._DETECTED_TING === "TINGKATAN 2"); }
+        
+        document.getElementById('filterStatusLabel').innerText = `Analisis: ${mode === 'SEMUA' ? 'Keseluruhan' : mode} (${activeData.length} Murid)`;
+        refreshDashboard();
+    }
+
+    function refreshDashboard() {
+        const total = activeData.length;
+        document.getElementById('valTotal').innerText = total.toLocaleString();
+        const counts = { 'A2MP': 0, 'ONE_A': 0, 'LAYAK': 0, 'NEAR': 0, 'MIN': 0, 'FAIL': 0, 'TIADA': 0 };
+        activeData.forEach(d => {
+            const k = d.KATEGORI_STEM;
+            if (k === 'LAYAK STEM (A 2MP)') counts.A2MP++;
+            else if (k === 'SALAH 1 MP A (1 MP C KE BAWAH)') counts.ONE_A++;
+            else if (k.includes('LAYAK')) counts.LAYAK++;
+            else if (k.includes('NEAR')) counts.NEAR++;
+            else if (k.includes('CAPAI')) counts.MIN++;
+            else if (k.includes('TIDAK MENGUASAI')) counts.FAIL++;
+            else counts.TIADA++;
+        });
+
+        document.getElementById('valLayakA').innerText = counts.A2MP.toLocaleString();
+        document.getElementById('valSalahSatuA').innerText = counts.ONE_A.toLocaleString();
+        document.getElementById('valLayak').innerText = counts.LAYAK.toLocaleString();
+        document.getElementById('valNearMiss').innerText = counts.NEAR.toLocaleString();
+        document.getElementById('valMinimum').innerText = counts.MIN.toLocaleString();
+        document.getElementById('valKritis').innerText = counts.FAIL.toLocaleString();
+        document.getElementById('valTiada').innerText = counts.TIADA.toLocaleString();
+
+        const getPct = (c) => total > 0 ? ((c/total)*100).toFixed(1) + '%' : '0%';
+        document.getElementById('pctLayakA').innerText = getPct(counts.A2MP);
+        document.getElementById('pctSalahSatuA').innerText = getPct(counts.ONE_A);
+        document.getElementById('pctLayak').innerText = getPct(counts.LAYAK);
+        document.getElementById('pctNearMiss').innerText = getPct(counts.NEAR);
+        document.getElementById('pctMinimum').innerText = getPct(counts.MIN);
+        document.getElementById('pctKritis').innerText = getPct(counts.FAIL);
+        document.getElementById('pctTiada').innerText = getPct(counts.TIADA);
+
+        initMappingMenu();
+        updateSubjectCharts();
+        updateCharts(activeData);
+        document.getElementById('schoolTableBody').innerHTML = '<tr><td colspan="2" class="text-center text-muted py-5 small">Klik kategori untuk analisis.</td></tr>';
+        document.getElementById('categoryAnalysisRow').style.display = 'none';
+        closeStudentSection();
+    }
+
+    function updateSubjectCharts() {
+        const greds = ['A', 'B', 'C', 'D', 'E', 'F', 'TD'];
+        const math = greds.map(g => activeData.filter(d => d._MATH_GRED === g).length);
+        const sci = greds.map(g => activeData.filter(d => d._SCI_GRED === g).length);
+        const getColor = (g, base) => (g === 'F' || g === 'TD') ? '#dc3545' : base;
+
+        Plotly.newPlot('subjectGradesChart', [
+            { x: greds, y: math, name: 'Matematik', type: 'bar', text: math.map(v => v > 0 ? v.toLocaleString() : ""), textposition: 'auto', marker: { color: greds.map(g => getColor(g, '#1a73e8')) } },
+            { x: greds, y: sci, name: 'Sains', type: 'bar', text: sci.map(v => v > 0 ? v.toLocaleString() : ""), textposition: 'auto', marker: { color: greds.map(g => getColor(g, '#34a853')) } }
+        ], { barmode: 'group', margin: { t: 30, b: 40, l: 50, r: 20 }, legend: { orientation: 'h', y: 1.2 } });
+    }
+
+    function initMappingMenu() {
+        const listContainer = document.getElementById('mappingList');
+        listContainer.innerHTML = '';
+        mappingLabels.forEach(label => {
+            const count = activeData.filter(d => d.KATEGORI_STEM === label).length;
+            const percentage = activeData.length > 0 ? ((count / activeData.length) * 100).toFixed(1) : 0;
+            const li = document.createElement('li');
+            li.className = 'category-item';
+            li.innerHTML = `<span>${label}</span> <span><span class="badge bg-primary rounded-pill me-1">${count.toLocaleString()}</span> <small class="text-muted">${percentage}%</small></span>`;
+            li.onclick = () => updateFilterView(label);
+            listContainer.appendChild(li);
+        });
+    }
+
+    function updateFilterView(label) {
+        document.querySelectorAll('.category-item, .stat-card').forEach(item => item.classList.remove('active'));
+        const cards = document.querySelectorAll('.stat-card');
+        cards.forEach(card => { if(card.innerText.includes(label)) card.classList.add('active'); });
+        const listItems = document.querySelectorAll('.category-item');
+        listItems.forEach(item => { if(item.innerText.includes(label)) item.classList.add('active'); });
+
+        document.getElementById('filterIndicator').innerText = label;
+        categoryFilteredData = activeData.filter(d => d.KATEGORI_STEM === label);
+        
+        const schoolCounts = {};
+        categoryFilteredData.forEach(d => { const s = d['NAMA_PENUH_INSTITUSI'] || 'Tiada Nama'; schoolCounts[s] = (schoolCounts[s] || 0) + 1; });
+        const sorted = Object.entries(schoolCounts).sort((a,b) => b[1] - a[1]);
+        document.getElementById('schoolTableBody').innerHTML = sorted.map(([name, count]) => `
+            <tr onclick="showStudentList('${name.replace(/'/g, "\\'")}')" style="cursor:pointer;">
+                <td class="small fw-semibold">${name} ➔</td>
+                <td class="text-center"><span class="badge bg-primary rounded-pill px-3">${count}</span></td>
+            </tr>
+        `).join('') || '<tr><td colspan="2" class="text-center">Tiada data.</td></tr>';
+        document.getElementById('totalSchoolCount').innerText = `Bil: ${categoryFilteredData.length} Murid | ${sorted.length} Sekolah`;
+        document.getElementById('exportBtn').style.display = 'block';
+
+        document.getElementById('categoryAnalysisRow').style.display = 'block';
+        const ppdCounts = {};
+        categoryFilteredData.forEach(d => { const name = (d.KET_PPD || 'Lain').replace('PPD ', ''); ppdCounts[name] = (ppdCounts[name] || 0) + 1; });
+        const ppdSorted = Object.entries(ppdCounts).sort((a,b) => b[1] - a[1]);
+        Plotly.newPlot('categoryPpdChart', [{ x: ppdSorted.map(i => i[0]), y: ppdSorted.map(i => i[1]), type: 'bar', text: ppdSorted.map(i => i[1].toLocaleString()), textposition: 'auto', marker: { color: '#ffca28' } }], { margin: { t: 10, b: 80, l: 40, r: 10 } });
+
+        updateCharts(categoryFilteredData);
+        document.getElementById('genderTitle').innerText = `Jantina [${label}]`;
+        document.getElementById('ppdTitle').innerText = `PPD [${label}]`;
+        document.getElementById('insTitle').innerText = `Institusi [${label}]`;
+        closeStudentSection();
+    }
+
+    function showStudentList(schoolName) {
+        const students = categoryFilteredData.filter(d => d['NAMA_PENUH_INSTITUSI'] === schoolName);
+        document.getElementById('studentTableTitle').innerText = `Murid: ${schoolName} (${students.length})`;
+        document.getElementById('studentTableBody').innerHTML = students.map(s => `
+            <tr>
+                <td>${s['NAMA_MURID'] || '-'}</td>
+                <td>${s['NO_KP'] || '-'}</td>
+                <td class="small"><strong>${s['_DETECTED_TING']}</strong></td>
+                <td class="small">${s['KEPUTUSAN MT DAN SAINS'] || '-'}</td>
+                <td class="fw-bold small">${s['KATEGORI_STEM']}</td>
+            </tr>
+        `).join('');
+        document.getElementById('studentDetailSection').style.display = 'block';
+        document.getElementById('studentDetailSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function updateCharts(data) {
+        if (!data || data.length === 0) return;
+        const male = data.filter(d => String(d.JANTINA).toUpperCase().includes('LELAKI') || String(d.JANTINA).toUpperCase().startsWith('L')).length;
+        const female = data.filter(d => String(d.JANTINA).toUpperCase().includes('PEREMPUAN') || String(d.JANTINA).toUpperCase().startsWith('P')).length;
+        Plotly.newPlot('genderChart', [{ labels: ['Lelaki', 'Perempuan'], values: [male, female], type: 'pie', hole: 0.4, textinfo: 'label+percent', marker: { colors: ['#2196f3', '#e91e63'] } }], { margin: { t: 0, b: 0, l: 0, r: 0 } });
+        const ppdCounts = {};
+        data.forEach(d => { const name = (d.KET_PPD || 'Lain').replace('PPD ', ''); ppdCounts[name] = (ppdCounts[name] || 0) + 1; });
+        const ppdSorted = Object.entries(ppdCounts).sort((a,b) => b[1] - a[1]);
+        Plotly.newPlot('ppdChart', [{ x: ppdSorted.map(i => i[0]), y: ppdSorted.map(i => i[1]), type: 'bar', text: ppdSorted.map(i => i[1].toLocaleString()), textposition: 'auto', marker: { color: '#1a73e8' } }], { margin: { t: 10, b: 80, l: 40, r: 10 } });
+        const insCounts = {};
+        data.forEach(d => { const n = (d.JNS_INSTITUSI || 'Lain').split(' ')[0]; insCounts[n] = (insCounts[n] || 0) + 1; });
+        Plotly.newPlot('insChart', [{ labels: Object.keys(insCounts), values: Object.values(insCounts), type: 'pie', textinfo: 'percent' }], { margin: { t: 0, b: 0, l: 0, r: 0 }, showlegend: false });
+    }
+
+    function showLoading(show) { document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; }
+    function closeStudentSection() { document.getElementById('studentDetailSection').style.display = 'none'; }
+    function exportFilteredData() {
+        const ws = XLSX.utils.json_to_sheet(categoryFilteredData.length > 0 ? categoryFilteredData : activeData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data");
+        XLSX.writeFile(wb, "Analisis_STEM_Pahang_GitHub.xlsx");
+    }
+</script>
+
+</body>
+</html>

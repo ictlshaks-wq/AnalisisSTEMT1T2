@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Analisis STEM T1 & T2 - JPN Pahang</title>
+    <!-- Library untuk Grafik dan Excel -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root { --primary-color: #1a73e8; --bg-color: #f4f7f9; --accent-color: #ffca28; --danger-color: #d93025; --success-color: #34a853; }
+        body { background-color: var(--bg-color); font-family: 'Segoe UI', system-ui, sans-serif; }
+        
+        /* Header dan Attribution */
+        .dashboard-header { 
+            background: linear-gradient(135deg, #1a73e8, #0d47a1); 
+            color: white; 
+            padding: 30px 0 110px 0; /* Ditingkatkan untuk memberi ruang kepada atribusi */
+            border-bottom: 5px solid var(--accent-color); 
+            position: relative; 
+        }
+        
+        .header-attribution {
+            position: absolute;
+            bottom: 50px; /* Dinaikkan supaya tidak bertindih dengan kotak putih portal-control */
+            right: 20px;
+            font-size: 0.65rem;
+            opacity: 0.9;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            text-align: right;
+        }
+
+        /* Kad dan Grid */
+        .card { border: none; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.08); margin-bottom: 25px; }
+        
+        .stat-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 1rem; 
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 992px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 576px) { .stat-grid { grid-template-columns: 1fr; } }
+
+        .stat-card { 
+            text-align: center; 
+            padding: 15px; 
+            border-top: 5px solid var(--primary-color); 
+            height: 100%; 
+            transition: all 0.2s; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 20px rgba(0,0,0,0.15); }
+        .stat-card.active { border: 2px solid var(--primary-color); border-top-width: 8px; background: #e8f0fe; }
+        
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--primary-color); line-height: 1.1; }
+        .stat-label { color: #444; font-size: 0.6rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.3px; margin-top: 8px; margin-bottom: 8px; display: block; line-height: 1.2; }
+        
+        .chart-title { font-weight: 700; color: #1a73e8; margin-bottom: 15px; border-left: 6px solid var(--accent-color); padding-left: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .scroll-area { max-height: 400px; overflow-y: auto; border-radius: 8px; border: 1px solid #eee; }
+        
+        /* Navigasi Kategori */
+        .category-item { 
+            padding: 10px 15px; margin-bottom: 8px; background: #fff; border: 1px solid #dee2e6; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+        }
+        .category-item.active { background: #1a73e8 !important; color: #fff !important; border-color: #1a73e8; }
+
+        .portal-control { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 15px; 
+            margin-top: -35px; 
+            z-index: 100; 
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.85);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .btn-export { background-color: var(--success-color); color: white; font-weight: bold; border-radius: 8px; }
+        .btn-reset { background-color: #ff9800; color: white; font-weight: bold; border-radius: 8px; }
+        .btn-reset:hover { background-color: #f57c00; color: white; }
+
+        #dataStatusIndicator {
+            font-size: 0.75rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        /* Perincian Sekolah Styling */
+        .school-selector-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 15px;
+            border-top: 5px solid var(--primary-color);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+
+        .filter-label { font-size: 0.75rem; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 5px; }
+
+        /* Visual Kotak Grid */
+        .visual-kotak-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+        
+        .box-stat {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            border-left: 6px solid #ccc;
+            transition: all 0.3s;
+        }
+        .box-stat:hover { background: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transform: scale(1.02); }
+        .box-stat-val { font-size: 1.25rem; font-weight: 800; display: block; }
+        .box-stat-lbl { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; color: #555; margin-top: 5px; display: block; line-height: 1.2; }
+        .box-stat-pct { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-top: 5px; display: inline-block; }
+
+        .school-student-list-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            border-top: 5px solid var(--success-color);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            margin-top: 25px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+    <div class="mt-3 fw-bold h5" id="loadingText">Memuat Turun Data...</div>
+</div>
+
+<!-- Header -->
+<div class="dashboard-header text-center shadow-sm">
+    <div class="container">
+        <h1 class="fw-bold">📊 Portal Analisis STEM Pahang T1 & T2</h1>
+        <p class="lead text-white-50">Sistem Unjuran Strategik PBD Menengah Rendah</p>
+    </div>
+    <div class="header-attribution">APLIKASI INI DIBANGUNKAN OLEH UNIT TMK, SEKTOR PEMBELAJARAN, JPN PAHANG 2026</div>
+</div>
+
+<div class="container">
+    <!-- Kawalan Utama -->
+    <div class="portal-control shadow-sm mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-7 mb-3 mb-md-0 border-end">
+                <div class="d-flex align-items-center mb-2">
+                    <label class="fw-bold text-secondary small text-uppercase">Data Kumpulan:</label>
+                    <span id="dataStatusIndicator" class="badge bg-secondary">TIADA DATA</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary fw-bold flex-grow-1 py-2" onclick="loadFromPath('T1')">📥 TINGKATAN 1</button>
+                    <button class="btn btn-primary fw-bold flex-grow-1 py-2" onclick="loadFromPath('T2')">📥 TINGKATAN 2</button>
+                    <button class="btn btn-reset fw-bold px-3 py-2" onclick="resetFilters()">🔄 RESET</button>
+                </div>
+            </div>
+            <div class="col-md-5 ps-md-4">
+                <label class="fw-bold text-secondary small mb-2 text-uppercase">Muat Naik Manual:</label>
+                <div class="input-group input-group-sm">
+                    <input type="file" class="form-control" id="excelInput" accept=".csv, .xlsx">
+                    <button class="btn btn-outline-primary fw-bold" type="button" id="loadBtn">PROSES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistik Utama -->
+    <div class="stat-grid" id="statGridContainer" style="display:none;">
+        <div class="card stat-card active" id="cardSemua" onclick="filterByForm('SEMUA')"><span class="stat-value" id="valTotal">0</span><span class="stat-label">Jumlah Murid</span><span class="badge bg-primary" id="pctTotal">100%</span></div>
+        <div class="card stat-card" id="cardLayakA" style="border-top-color: #6a1b9a;" onclick="updateFilterView('LAYAK STEM (A 2MP)')"><span class="stat-value" id="valLayakA" style="color: #6a1b9a;">0</span><span class="stat-label">Layak STEM (A 2MP)</span><span class="badge bg-dark" id="pctLayakA">0%</span></div>
+        <div class="card stat-card" id="cardSalahA" style="border-top-color: #00897b;" onclick="updateFilterView('SALAH 1 MP A (1 MP C KE BAWAH)')"><span class="stat-value" id="valSalahSatuA" style="color: #00897b;">0</span><span class="stat-label">Salah 1 MP A (1 MP C Ke Bawah)</span><span class="badge bg-info" id="pctSalahSatuA">0%</span></div>
+        <div class="card stat-card" id="cardLayak" style="border-top-color: #2e7d32;" onclick="updateFilterView('LAYAK STEM (C KE ATAS)')"><span class="stat-value text-success" id="valLayak">0</span><span class="stat-label">Layak STEM (C Ke Atas)</span><span class="badge bg-success" id="pctLayak">0%</span></div>
+        
+        <div class="card stat-card" id="cardNear" style="border-top-color: #f9a825;" onclick="updateFilterView('NEAR MISS (1 MP BAWAH MINIMUM)')"><span class="stat-value text-warning" id="valNearMiss">0</span><span class="stat-label">Near Miss (1 MP)</span><span class="badge bg-warning text-dark" id="pctNearMiss">0%</span></div>
+        <div class="card stat-card" id="cardMin" style="border-top-color: #fd7e14;" onclick="updateFilterView('CAPAI MINIMUM (D,E)')"><span class="stat-value text-orange" id="valMinimum" style="color: #fd7e14;">0</span><span class="stat-label">Capai Minimum (D,E)</span><span class="badge bg-secondary" id="pctMinimum">0%</span></div>
+        <div class="card stat-card" id="cardFail" style="border-top-color: #c62828;" onclick="updateFilterView('TIDAK MENGUASAI (F/G)')"><span class="stat-value text-danger" id="valKritis">0</span><span class="stat-label">Tidak Menguasai (F)</span><span class="badge bg-danger" id="pctKritis">0%</span></div>
+        <div class="card stat-card" id="cardTiada" style="border-top-color: #757575;" onclick="updateFilterView('TIDAK DITAKSIR / TIADA DATA')"><span class="stat-value text-muted" id="valTiada">0</span><span class="stat-label">Tidak Ditaksir / X</span><span class="badge bg-light text-dark" id="pctTiada">0%</span></div>
+    </div>
+
+    <!-- Analisis Subjek -->
+    <div class="row mt-2" id="subjectAnalysisSection" style="display:none;">
+        <div class="col-lg-12">
+            <div class="card p-4 shadow-sm">
+                <h5 class="chart-title">Analisis Kekuatan Mata Pelajaran (MT vs SN)</h5>
+                <div id="subjectGradesChart" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pemetaan Sekolah (Kategori Global) -->
+    <div id="mappingSection" style="display:none;">
+        <div class="row mt-2">
+            <div class="col-md-5">
+                <div class="card p-4 h-100 shadow-sm">
+                    <h5 class="chart-title">Pilih Kategori Unjuran</h5>
+                    <div class="scroll-area pe-2">
+                        <ul class="category-list" id="mappingList"></ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <div class="card p-4 h-100 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="chart-title mb-0" id="tableMainTitle">Daftar Sekolah</h5>
+                        <div id="filterIndicator" class="badge bg-primary rounded-pill px-3 py-2">Keseluruhan</div>
+                    </div>
+                    <div class="scroll-area border rounded bg-white">
+                        <table class="table table-hover align-middle mb-0" id="schoolTable">
+                            <thead class="table-light">
+                                <tr><th style="width: 75%;">Nama Sekolah</th><th class="text-center">Bil. Murid</th></tr>
+                            </thead>
+                            <tbody id="schoolTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <div id="totalSchoolCount" class="small fw-bold text-primary"></div>
+                        <button id="exportBtn" class="btn btn-export btn-sm" style="display:none;" onclick="exportFilteredData()">📥 Eksport Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jadual Murid (Kategori Global) -->
+    <div id="studentDetailSection" class="card p-4 mt-4 shadow-lg border-top border-primary" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 text-primary fw-bold" id="studentTableTitle">Senarai Murid</h5>
+            <button class="btn btn-close btn-sm" onclick="closeStudentSection()"></button>
+        </div>
+        <div class="table-responsive" style="max-height: 450px;">
+            <table class="table table-sm table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr><th>Nama Murid</th><th>No. KP</th><th>Tingkatan</th><th>Keputusan MT/SN</th><th>Status Unjuran</th></tr>
+                </thead>
+                <tbody id="studentTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Carta Jantina/PPD/Institusi -->
+    <div class="row" id="bottomChartsSection" style="display:none;">
+        <div class="col-md-4"><div class="card p-4 shadow-sm"><h5 class="chart-title" id="genderTitle">Jantina</h5><div id="genderChart" style="height: 300px;"></div></div></div>
+        <div class="col-md-4"><div class="card p-4 shadow-sm"><h5 class="chart-title" id="ppdTitle">Daerah (PPD)</h5><div id="ppdChart" style="height: 300px;"></div></div></div>
+        <div class="col-md-4"><div class="card p-4 shadow-sm"><h5 class="chart-title" id="insTitle">Jenis Sekolah</h5><div id="insChart" style="height: 300px;"></div></div></div>
+    </div>
+
+    <!-- Perincian Sekolah (Filter Bawah Sekali) -->
+    <div id="schoolAnalysisSection" class="row mt-4 mb-3" style="display:none;">
+        <div class="col-12">
+            <div class="card p-4 shadow-sm school-selector-box">
+                <h5 class="chart-title mb-4">Analisis Perincian Sekolah</h5>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="filter-label">1. Pilih Daerah (PPD)</div>
+                        <select id="ppdDropdown" class="form-select border-primary fw-bold" onchange="handlePpdChange()">
+                            <option value="">-- Semua PPD --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="filter-label">2. Pilih Institusi / Sekolah</div>
+                        <select id="schoolDropdown" class="form-select border-primary fw-bold" onchange="handleSchoolSelect()">
+                            <option value="">-- Pilih PPD Dahulu --</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="schoolChartContainer" style="display:none;">
+                    <hr>
+                    <div class="p-4 bg-light rounded border shadow-sm">
+                        <h6 class="fw-bold text-primary mb-4">TABURAN VISUAL KOTAK KATEGORI</h6>
+                        <div id="schoolSummaryStats" class="visual-kotak-grid"></div>
+                        <div class="mt-4 text-center">
+                            <button class="btn btn-primary fw-bold px-4 py-2 shadow-sm" onclick="showSchoolDetailedList()">LIHAT SENARAI MURID SEKOLAH INI</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="schoolChartEmpty" class="text-center py-5 text-muted">
+                    <p class="mb-0">Pilih sekolah di atas untuk paparan visual kotak.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jadual Murid Sekolah Pilihan (Bawah Sekali) -->
+    <div id="schoolStudentListSection" class="school-student-list-container mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+            <h5 class="mb-0 text-success fw-bold" id="schoolStudentTableTitle">Senarai Murid Sekolah</h5>
+            <button class="btn btn-close btn-sm" onclick="closeSchoolStudentSection()"></button>
+        </div>
+        <div class="table-responsive" style="max-height: 500px;">
+            <table class="table table-sm table-bordered table-striped">
+                <thead class="table-success text-dark">
+                    <tr><th>Nama Murid</th><th>No. KP</th><th>Tingkatan</th><th>Keputusan MT/SN</th><th>Status Unjuran</th></tr>
+                </thead>
+                <tbody id="schoolStudentTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<footer class="text-center py-4 text-muted border-top mt-5 bg-white">
+    <p class="mb-0 small">Portal Analisis STEM v5.4 | © JPN Pahang</p>
+</footer>
+
+<script>
+    const DATA_PATHS = { 'T1': './data_t1.xlsx', 'T2': './data_t2.xlsx' };
+    let fullRawData = [];
+    let activeData = [];
+    let categoryFilteredData = [];
+    
+    const mappingLabels = [
+        'LAYAK STEM (A 2MP)', 'SALAH 1 MP A (1 MP C KE BAWAH)', 'LAYAK STEM (C KE ATAS)',
+        'NEAR MISS (1 MP BAWAH MINIMUM)', 'CAPAI MINIMUM (D,E)', 'TIDAK MENGUASAI (F/G)', 'TIDAK DITAKSIR / TIADA DATA'
+    ];
+
+    const mappingColors = {
+        'LAYAK STEM (A 2MP)': '#6a1b9a', 'SALAH 1 MP A (1 MP C KE BAWAH)': '#00897b', 'LAYAK STEM (C KE ATAS)': '#2e7d32',
+        'NEAR MISS (1 MP BAWAH MINIMUM)': '#f9a825', 'CAPAI MINIMUM (D,E)': '#fd7e14', 'TIDAK MENGUASAI (F/G)': '#c62828', 'TIDAK DITAKSIR / TIADA DATA': '#757575'
+    };
+
+    function showLoading(show, text) { 
+        document.getElementById('loadingText').innerText = text || "Memproses...";
+        document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; 
+    }
+
+    async function loadFromPath(type) {
+        showLoading(true, `Muat turun data ${type}...`);
+        try {
+            const response = await fetch(DATA_PATHS[type]);
+            if (!response.ok) throw new Error("Gagal akses fail data.");
+            const arrayBuffer = await response.arrayBuffer();
+            processWorkbook(arrayBuffer, type);
+            document.getElementById('dataStatusIndicator').innerText = `DATA ${type} AKTIF`;
+            document.getElementById('dataStatusIndicator').className = "badge bg-success";
+        } catch (e) {
+            alert("Ralat: Pastikan fail data_t1.xlsx/data_t2.xlsx wujud.");
+        } finally { showLoading(false); }
+    }
+
+    document.getElementById('loadBtn').onclick = () => {
+        const file = document.getElementById('excelInput').files[0];
+        if (!file) return;
+        showLoading(true);
+        const r = new FileReader();
+        r.onload = (e) => { processWorkbook(e.target.result, file.name); showLoading(false); };
+        r.readAsArrayBuffer(file);
+    };
+
+    function processWorkbook(buffer, name) {
+        const wb = XLSX.read(new Uint8Array(buffer), {type:'array'});
+        let combined = [];
+        wb.SheetNames.forEach(s => {
+            const json = XLSX.utils.sheet_to_json(wb.Sheets[s]);
+            combined = combined.concat(json.map(row => {
+                let d = {}; Object.keys(row).forEach(k => d[k.trim()] = row[k]);
+                // Normalisasi Nama Sekolah (PENTING)
+                if(d['NAMA_PENUH_INSTITUSI']) d['NAMA_PENUH_INSTITUSI'] = String(d['NAMA_PENUH_INSTITUSI']).trim();
+                
+                const res = String(d['KEPUTUSAN MT DAN SAINS'] || "").trim();
+                const mMatch = res.match(/MAT \(([A-G])\)/);
+                const sMatch = res.match(/SAINS \(([A-G])\)/);
+                let mg = mMatch ? mMatch[1] : (res.includes('(X)') ? 'TD' : 'TD');
+                let sg = sMatch ? sMatch[1] : (res.includes('(X)') ? 'TD' : 'TD');
+                if(mg==='G') mg='F'; if(sg==='G') sg='F';
+                d['_MATH_GRED'] = mg; d['_SCI_GRED'] = sg;
+
+                let kat = 'TIDAK DITAKSIR / TIADA DATA';
+                const kr = ['A','B','C'], mn = ['D','E'], gg = ['F'];
+                if(mg !== 'TD' && sg !== 'TD') {
+                    if(mg==='A' && sg==='A') kat = 'LAYAK STEM (A 2MP)';
+                    else if(mg==='A' || sg==='A') kat = 'SALAH 1 MP A (1 MP C KE BAWAH)';
+                    else if(kr.includes(mg) && kr.includes(sg)) kat = 'LAYAK STEM (C KE ATAS)';
+                    else if((kr.includes(mg) && mn.includes(sg)) || (kr.includes(sg) && mn.includes(mg))) kat = 'NEAR MISS (1 MP BAWAH MINIMUM)';
+                    else if(mn.includes(mg) && mn.includes(sg)) kat = 'CAPAI MINIMUM (D,E)';
+                    else if(gg.includes(mg) || gg.includes(sg)) kat = 'TIDAK MENGUASAI (F/G)';
+                }
+                d['KATEGORI_STEM'] = kat;
+                return d;
+            }));
+        });
+        fullRawData = combined; activeData = combined;
+        document.getElementById('statGridContainer').style.display = 'grid';
+        
+        // PAPARAN GRID: Menggunakan display:flex untuk rows supaya kolum Bootstrap berfungsi
+        document.getElementById('subjectAnalysisSection').style.display = 'flex';
+        document.getElementById('mappingSection').style.display = 'flex';
+        document.getElementById('schoolAnalysisSection').style.display = 'flex';
+        document.getElementById('bottomChartsSection').style.display = 'flex';
+        
+        populatePpdDropdown(); refreshDashboard();
+    }
+
+    function refreshDashboard() {
+        const total = activeData.length;
+        document.getElementById('valTotal').innerText = total.toLocaleString();
+        const counts = { 'A2MP':0, 'ONE_A':0, 'LAYAK':0, 'NEAR':0, 'MIN':0, 'FAIL':0, 'TIADA':0 };
+        activeData.forEach(d => {
+            const k = d.KATEGORI_STEM;
+            if (k === 'LAYAK STEM (A 2MP)') counts.A2MP++;
+            else if (k.includes('SALAH 1')) counts.ONE_A++;
+            else if (k.includes('LAYAK STEM (C')) counts.LAYAK++;
+            else if (k.includes('NEAR')) counts.NEAR++;
+            else if (k.includes('CAPAI')) counts.MIN++;
+            else if (k.includes('TIDAK MENGUASAI')) counts.FAIL++;
+            else counts.TIADA++;
+        });
+
+        document.getElementById('valLayakA').innerText = counts.A2MP;
+        document.getElementById('valSalahSatuA').innerText = counts.ONE_A;
+        document.getElementById('valLayak').innerText = counts.LAYAK;
+        document.getElementById('valNearMiss').innerText = counts.NEAR;
+        document.getElementById('valMinimum').innerText = counts.MIN;
+        document.getElementById('valKritis').innerText = counts.FAIL;
+        document.getElementById('valTiada').innerText = counts.TIADA;
+
+        const getPct = (c) => total > 0 ? ((c/total)*100).toFixed(1) + '%' : '0%';
+        document.getElementById('pctLayakA').innerText = getPct(counts.A2MP);
+        document.getElementById('pctSalahSatuA').innerText = getPct(counts.ONE_A);
+        document.getElementById('pctLayak').innerText = getPct(counts.LAYAK);
+        document.getElementById('pctNearMiss').innerText = getPct(counts.NEAR);
+        document.getElementById('pctMinimum').innerText = getPct(counts.MIN);
+        document.getElementById('pctKritis').innerText = getPct(counts.FAIL);
+        document.getElementById('pctTiada').innerText = getPct(counts.TIADA);
+
+        initMappingMenu(); updateSubjectCharts(); updateCharts(activeData);
+        document.getElementById('schoolTableBody').innerHTML = '<tr><td colspan="2" class="text-center p-4 text-muted small">Pilih kategori unjuran di kiri.</td></tr>';
+    }
+
+    function initMappingMenu() {
+        const list = document.getElementById('mappingList'); list.innerHTML = '';
+        mappingLabels.forEach(label => {
+            const count = activeData.filter(d => d.KATEGORI_STEM === label).length;
+            const pct = activeData.length > 0 ? ((count/activeData.length)*100).toFixed(1) : 0;
+            const li = document.createElement('li'); li.className = 'category-item';
+            li.innerHTML = `<span>${label}</span> <span class="badge bg-primary">${count}</span>`;
+            li.onclick = () => updateFilterView(label);
+            list.appendChild(li);
+        });
+    }
+
+    function updateFilterView(label) {
+        document.querySelectorAll('.stat-card, .category-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('filterIndicator').innerText = label;
+        categoryFilteredData = activeData.filter(d => d.KATEGORI_STEM === label);
+        const schoolCounts = {};
+        categoryFilteredData.forEach(d => { const s = d['NAMA_PENUH_INSTITUSI'] || 'X'; schoolCounts[s] = (schoolCounts[s] || 0) + 1; });
+        const sorted = Object.entries(schoolCounts).sort((a,b) => b[1] - a[1]);
+        
+        document.getElementById('schoolTableBody').innerHTML = sorted.map(([name, count]) => {
+            const safeName = encodeURIComponent(name);
+            return `<tr onclick="showStudentList('${safeName}')" style="cursor:pointer;"><td class="small fw-bold">${name} ➔</td><td class="text-center"><span class="badge bg-primary px-3">${count}</span></td></tr>`;
+        }).join('') || '<tr><td colspan="2" class="text-center">Tiada data.</td></tr>';
+        
+        document.getElementById('totalSchoolCount').innerText = `Jumlah: ${categoryFilteredData.length} Murid`;
+        document.getElementById('exportBtn').style.display = 'block';
+        updateCharts(categoryFilteredData);
+        closeStudentSection();
+    }
+
+    function showStudentList(encodedName) {
+        const name = decodeURIComponent(encodedName);
+        const students = categoryFilteredData.filter(d => d['NAMA_PENUH_INSTITUSI'] === name);
+        if(students.length === 0) return alert("Data murid tidak ditemui.");
+        
+        document.getElementById('studentTableTitle').innerText = `Murid: ${name} (${students.length})`;
+        document.getElementById('studentTableBody').innerHTML = students.map(s => `<tr><td>${s['NAMA_MURID']}</td><td>${s['NO_KP']}</td><td class="small">${s['THN_TING'] || '-'}</td><td class="small">${s['KEPUTUSAN MT DAN SAINS']}</td><td class="fw-bold small" style="color:${mappingColors[s['KATEGORI_STEM']]}">${s['KATEGORI_STEM']}</td></tr>`).join('');
+        document.getElementById('studentDetailSection').style.display = 'block';
+        document.getElementById('studentDetailSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // FUNGSI PERINCIAAN SEKOLAH (DROPDOWN)
+    function populatePpdDropdown() {
+        const drop = document.getElementById('ppdDropdown'); drop.innerHTML = '<option value="">-- Semua PPD --</option>';
+        const ppds = [...new Set(fullRawData.map(d => d['KET_PPD'] || 'TIADA PPD'))].sort();
+        ppds.forEach(p => { const o = document.createElement('option'); o.value = p; o.innerText = p; drop.appendChild(o); });
+        populateSchoolDropdown();
+    }
+
+    function handlePpdChange() { populateSchoolDropdown(); document.getElementById('schoolChartContainer').style.display = 'none'; document.getElementById('schoolChartEmpty').style.display = 'block'; }
+
+    function populateSchoolDropdown() {
+        const val = document.getElementById('ppdDropdown').value;
+        const drop = document.getElementById('schoolDropdown'); drop.innerHTML = '<option value="">-- Sila Pilih Sekolah --</option>';
+        let filter = val ? fullRawData.filter(d => d['KET_PPD'] === val) : fullRawData;
+        const schools = [...new Set(filter.map(d => d['NAMA_PENUH_INSTITUSI'] || 'X'))].sort();
+        schools.forEach(s => { const o = document.createElement('option'); o.value = s; o.innerText = s; drop.appendChild(o); });
+    }
+
+    function handleSchoolSelect() {
+        const name = document.getElementById('schoolDropdown').value;
+        if(!name) return;
+        document.getElementById('schoolChartContainer').style.display = 'block';
+        document.getElementById('schoolChartEmpty').style.display = 'none';
+        closeSchoolStudentSection();
+        updateSchoolVisual(name);
+    }
+
+    function updateSchoolVisual(name) {
+        const data = fullRawData.filter(d => d['NAMA_PENUH_INSTITUSI'] === name);
+        const total = data.length;
+        const stats = mappingLabels.map(l => {
+            const count = data.filter(d => d.KATEGORI_STEM === l).length;
+            const pct = total > 0 ? ((count/total)*100).toFixed(1) : 0;
+            const color = mappingColors[l];
+            return `<div class="box-stat" style="border-left-color:${color}"><span class="box-stat-val" style="color:${color}">${count}</span><span class="box-stat-pct" style="background:${color}20; color:${color}">${pct}%</span><span class="box-stat-lbl">${l.split(' (')[0]}</span></div>`;
+        }).join('');
+        
+        document.getElementById('schoolSummaryStats').innerHTML = `<div class="box-stat col-12 mb-3 bg-white border-primary border-start-0 border-top" style="border-top-width:5px; padding:20px;"><span class="box-stat-lbl">JUMLAH MURID DITAKSIR</span><span class="box-stat-val text-primary" style="font-size:2rem">${total}</span></div>` + stats;
+    }
+
+    function showSchoolDetailedList() {
+        const name = document.getElementById('schoolDropdown').value;
+        if(!name) return;
+        const students = fullRawData.filter(d => d['NAMA_PENUH_INSTITUSI'] === name);
+        document.getElementById('schoolStudentTableTitle').innerText = `Murid: ${name} (${students.length})`;
+        document.getElementById('schoolStudentTableBody').innerHTML = students.map(s => `<tr><td>${s['NAMA_MURID']}</td><td>${s['NO_KP']}</td><td class="small">${s['THN_TING']}</td><td class="small">${s['KEPUTUSAN MT DAN SAINS']}</td><td class="fw-bold small" style="color:${mappingColors[s['KATEGORI_STEM']]}">${s['KATEGORI_STEM']}</td></tr>`).join('');
+        document.getElementById('schoolStudentListSection').style.display = 'block';
+        document.getElementById('schoolStudentListSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function updateSubjectCharts() {
+        const g = ['A','B','C','D','E','F','TD'];
+        const m = g.map(gr => activeData.filter(d => d._MATH_GRED === gr).length);
+        const s = g.map(gr => activeData.filter(d => d._SCI_GRED === gr).length);
+        Plotly.newPlot('subjectGradesChart', [
+            { 
+                x:g, y:m, name:'Matematik', type:'bar', 
+                marker:{color:'#1a73e8'},
+                text: m.map(v => v > 0 ? v : ''), textposition: 'auto'
+            },
+            { 
+                x:g, y:s, name:'Sains', type:'bar', 
+                marker:{color:'#fd7e14'}, 
+                text: s.map(v => v > 0 ? v : ''), textposition: 'auto'
+            }
+        ], { barmode:'group', margin:{t:30, b:40, l:50, r:20} });
+    }
+
+    function updateCharts(data) {
+        if(!data.length) return;
+        const l = data.filter(d => String(d.JANTINA).startsWith('L')).length;
+        const p = data.filter(d => String(d.JANTINA).startsWith('P')).length;
+        Plotly.newPlot('genderChart', [{ labels:['L','P'], values:[l,p], type:'pie', hole:0.4, marker:{colors:['#2196f3','#e91e63']} }], {margin:{t:0,b:0,l:0,r:0}});
+        
+        const ppds = {}; data.forEach(d => { const n = (d.KET_PPD||'X').replace('PPD ',''); ppds[n] = (ppds[n]||0)+1; });
+        const ps = Object.entries(ppds).sort((a,b)=>b[1]-a[1]);
+        Plotly.newPlot('ppdChart', [{ x:ps.map(i=>i[0]), y:ps.map(i=>i[1]), type:'bar', marker:{color:'#1a73e8'} }], {margin:{t:10,b:60,l:40,r:10}});
+        
+        const ins = {}; data.forEach(d => { const n = (d.JNS_INSTITUSI||'X').split(' ')[0]; ins[n] = (ins[n]||0)+1; });
+        Plotly.newPlot('insChart', [{ labels:Object.keys(ins), values:Object.values(ins), type:'pie' }], {margin:{t:0,b:0,l:0,r:0}, showlegend:false});
+    }
+
+    function closeStudentSection() { document.getElementById('studentDetailSection').style.display = 'none'; }
+    function closeSchoolStudentSection() { document.getElementById('schoolStudentListSection').style.display = 'none'; }
+    function resetFilters() { location.reload(); }
+    function filterByForm() { activeData = fullRawData; refreshDashboard(); }
+</script>
+</body>
+</html>

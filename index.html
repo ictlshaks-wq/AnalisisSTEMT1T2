@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ms">
 <head>
@@ -192,7 +191,7 @@
                     <span class="text-primary fw-bold" style="font-size: 0.55rem; letter-spacing: 0.2px;">KLIK KOTAK UNTUK MUAT NAIK DATA GITHUB</span>
                 </div>
                 
-                <!-- Hidden inputs for logic maintenance (if required) -->
+                <!-- Hidden inputs for logic maintenance -->
                 <input type="file" id="manualT1" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T1')">
                 <input type="file" id="manualT2" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T2')">
             </div>
@@ -313,7 +312,7 @@
                         <h6 class="fw-bold text-primary mb-4">TABURAN VISUAL KOTAK KATEGORI</h6>
                         <div id="schoolSummaryStats" class="visual-kotak-grid"></div>
                         <div class="mt-4 text-center">
-                            <button class="btn btn-primary fw-bold px-4 py-2 shadow-sm" onclick="showSchoolDetailedList()">LIHAT SENARAI MURID SEKOLAH INI</button>
+                            <button id="btnShowDetailedList" class="btn btn-primary fw-bold px-4 py-2 shadow-sm" onclick="showSchoolDetailedList()">LIHAT SENARAI MURID SEKOLAH INI</button>
                         </div>
                     </div>
                 </div>
@@ -530,7 +529,22 @@
         populateSchoolDropdown();
     }
 
-    function handlePpdChange() { populateSchoolDropdown(); document.getElementById('schoolChartContainer').style.display = 'none'; document.getElementById('schoolChartEmpty').style.display = 'block'; }
+    function handlePpdChange() { 
+        populateSchoolDropdown(); 
+        const ppdVal = document.getElementById('ppdDropdown').value;
+        if(ppdVal) {
+            document.getElementById('schoolChartContainer').style.display = 'block';
+            document.getElementById('schoolChartEmpty').style.display = 'none';
+            closeSchoolStudentSection();
+            const data = fullRawData.filter(d => d['KET_PPD'] === ppdVal);
+            // Sorok butang senarai murid kerana senarai PPD terlalu panjang
+            document.getElementById('btnShowDetailedList').style.display = 'none';
+            updateVisualStats(data, `PPD: ${ppdVal}`);
+        } else {
+            document.getElementById('schoolChartContainer').style.display = 'none';
+            document.getElementById('schoolChartEmpty').style.display = 'block';
+        }
+    }
 
     function populateSchoolDropdown() {
         const val = document.getElementById('ppdDropdown').value;
@@ -542,24 +556,37 @@
 
     function handleSchoolSelect() {
         const name = document.getElementById('schoolDropdown').value;
-        if(!name) return;
+        if(!name) {
+            // Jika tiada sekolah dipilih, kembali ke statistik PPD yang sedang aktif
+            handlePpdChange();
+            return;
+        }
         document.getElementById('schoolChartContainer').style.display = 'block';
         document.getElementById('schoolChartEmpty').style.display = 'none';
         closeSchoolStudentSection();
-        updateSchoolVisual(name);
+        const data = fullRawData.filter(d => d['NAMA_PENUH_INSTITUSI'] === name);
+        // Tampilkan semula butang senarai murid untuk peringkat sekolah
+        document.getElementById('btnShowDetailedList').style.display = 'inline-block';
+        updateVisualStats(data, `SEKOLAH: ${name}`);
     }
 
-    function updateSchoolVisual(name) {
-        const data = fullRawData.filter(d => d['NAMA_PENUH_INSTITUSI'] === name);
+    function updateVisualStats(data, title) {
         const total = data.length;
         const stats = mappingLabels.map(l => {
             const count = data.filter(d => d.KATEGORI_STEM === l).length;
             const pct = total > 0 ? ((count/total)*100).toFixed(1) : 0;
             const color = mappingColors[l];
-            return `<div class="box-stat" style="border-left-color:${color}"><span class="box-stat-val" style="color:${color}">${count}</span><span class="box-stat-pct" style="background:${color}20; color:${color}">${pct}%</span><span class="box-stat-lbl">${l.split(' (')[0]}</span></div>`;
+            
+            // Logik paparan label: Jika kategori Layak STEM Ungu, paparkan label penuh seperti diminta
+            let displayLabel = l.split(' (')[0];
+            if (l === 'LAYAK STEM (A 2MP)') {
+                displayLabel = 'LAYAK STEM (2A MP)';
+            }
+            
+            return `<div class="box-stat" style="border-left-color:${color}"><span class="box-stat-val" style="color:${color}">${count}</span><span class="box-stat-pct" style="background:${color}20; color:${color}">${pct}%</span><span class="box-stat-lbl">${displayLabel}</span></div>`;
         }).join('');
         
-        document.getElementById('schoolSummaryStats').innerHTML = `<div class="box-stat col-12 mb-3 bg-white border-primary border-start-0 border-top" style="border-top-width:5px; padding:20px;"><span class="box-stat-lbl">JUMLAH MURID DITAKSIR</span><span class="box-stat-val text-primary" style="font-size:2rem">${total}</span></div>` + stats;
+        document.getElementById('schoolSummaryStats').innerHTML = `<div class="box-stat col-12 mb-3 bg-white border-primary border-start-0 border-top" style="border-top-width:5px; padding:20px;"><span class="box-stat-lbl">JUMLAH MURID DITAKSIR (${title})</span><span class="box-stat-val text-primary" style="font-size:2rem">${total}</span></div>` + stats;
     }
 
     function showSchoolDetailedList() {

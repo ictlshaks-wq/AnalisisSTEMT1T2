@@ -178,14 +178,29 @@
                     <label class="fw-bold text-secondary small text-uppercase">Data Kumpulan:</label>
                     <span id="dataStatusIndicator" class="badge bg-secondary">TIADA DATA</span>
                 </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-primary fw-bold flex-grow-1 py-2" onclick="loadFromPath('T1')">📥 TINGKATAN 1</button>
-                    <button class="btn btn-primary fw-bold flex-grow-1 py-2" onclick="loadFromPath('T2')">📥 TINGKATAN 2</button>
+                <div class="d-flex gap-2 align-items-start">
+                    <!-- Tingkatan 1 Container -->
+                    <div class="flex-grow-1 text-center">
+                        <button class="btn btn-primary fw-bold w-100 py-2" onclick="loadFromPath('T1')">📥 TINGKATAN 1</button>
+                        <div class="mt-1">
+                            <a href="javascript:void(0)" class="text-primary fw-bold" style="font-size: 0.55rem; text-decoration: none;" onclick="document.getElementById('manualT1').click()">[KLIK MUAT NAIK T1]</a>
+                            <input type="file" id="manualT1" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T1')">
+                        </div>
+                    </div>
+                    <!-- Tingkatan 2 Container -->
+                    <div class="flex-grow-1 text-center">
+                        <button class="btn btn-primary fw-bold w-100 py-2" onclick="loadFromPath('T2')">📥 TINGKATAN 2</button>
+                        <div class="mt-1">
+                            <a href="javascript:void(0)" class="text-primary fw-bold" style="font-size: 0.55rem; text-decoration: none;" onclick="document.getElementById('manualT2').click()">[KLIK MUAT NAIK T2]</a>
+                            <input type="file" id="manualT2" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T2')">
+                        </div>
+                    </div>
+                    <!-- Reset Button -->
                     <button class="btn btn-reset fw-bold px-3 py-2" onclick="resetFilters()">🔄 RESET</button>
                 </div>
             </div>
             <div class="col-md-5 ps-md-4">
-                <label class="fw-bold text-secondary small mb-2 text-uppercase">Muat Naik Manual:</label>
+                <label class="fw-bold text-secondary small mb-2 text-uppercase">Muat Naik Manual (Lain-lain):</label>
                 <div class="input-group input-group-sm">
                     <input type="file" class="form-control" id="excelInput" accept=".csv, .xlsx">
                     <button class="btn btn-outline-primary fw-bold" type="button" id="loadBtn">PROSES</button>
@@ -369,6 +384,21 @@
         } finally { showLoading(false); }
     }
 
+    // Fungsi untuk Muat Naik Manual Tingkatan 1 / 2
+    function handleQuickUpload(input, type) {
+        const file = input.files[0];
+        if (!file) return;
+        showLoading(true, `Memproses Data ${type} (Manual)...`);
+        const r = new FileReader();
+        r.onload = (e) => { 
+            processWorkbook(e.target.result, file.name); 
+            document.getElementById('dataStatusIndicator').innerText = `DATA ${type} (MANUAL) AKTIF`;
+            document.getElementById('dataStatusIndicator').className = "badge bg-warning text-dark";
+            showLoading(false); 
+        };
+        r.readAsArrayBuffer(file);
+    }
+
     document.getElementById('loadBtn').onclick = () => {
         const file = document.getElementById('excelInput').files[0];
         if (!file) return;
@@ -385,7 +415,6 @@
             const json = XLSX.utils.sheet_to_json(wb.Sheets[s]);
             combined = combined.concat(json.map(row => {
                 let d = {}; Object.keys(row).forEach(k => d[k.trim()] = row[k]);
-                // Normalisasi Nama Sekolah (PENTING)
                 if(d['NAMA_PENUH_INSTITUSI']) d['NAMA_PENUH_INSTITUSI'] = String(d['NAMA_PENUH_INSTITUSI']).trim();
                 
                 const res = String(d['KEPUTUSAN MT DAN SAINS'] || "").trim();
@@ -413,7 +442,6 @@
         fullRawData = combined; activeData = combined;
         document.getElementById('statGridContainer').style.display = 'grid';
         
-        // PAPARAN GRID: Menggunakan display:flex untuk rows supaya kolum Bootstrap berfungsi
         document.getElementById('subjectAnalysisSection').style.display = 'flex';
         document.getElementById('mappingSection').style.display = 'flex';
         document.getElementById('schoolAnalysisSection').style.display = 'flex';
@@ -462,7 +490,6 @@
         const list = document.getElementById('mappingList'); list.innerHTML = '';
         mappingLabels.forEach(label => {
             const count = activeData.filter(d => d.KATEGORI_STEM === label).length;
-            const pct = activeData.length > 0 ? ((count/activeData.length)*100).toFixed(1) : 0;
             const li = document.createElement('li'); li.className = 'category-item';
             li.innerHTML = `<span>${label}</span> <span class="badge bg-primary">${count}</span>`;
             li.onclick = () => updateFilterView(label);
@@ -500,7 +527,6 @@
         document.getElementById('studentDetailSection').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // FUNGSI PERINCIAAN SEKOLAH (DROPDOWN)
     function populatePpdDropdown() {
         const drop = document.getElementById('ppdDropdown'); drop.innerHTML = '<option value="">-- Semua PPD --</option>';
         const ppds = [...new Set(fullRawData.map(d => d['KET_PPD'] || 'TIADA PPD'))].sort();
@@ -555,16 +581,8 @@
         const m = g.map(gr => activeData.filter(d => d._MATH_GRED === gr).length);
         const s = g.map(gr => activeData.filter(d => d._SCI_GRED === gr).length);
         Plotly.newPlot('subjectGradesChart', [
-            { 
-                x:g, y:m, name:'Matematik', type:'bar', 
-                marker:{color:'#1a73e8'},
-                text: m.map(v => v > 0 ? v : ''), textposition: 'auto'
-            },
-            { 
-                x:g, y:s, name:'Sains', type:'bar', 
-                marker:{color:'#fd7e14'}, 
-                text: s.map(v => v > 0 ? v : ''), textposition: 'auto'
-            }
+            { x:g, y:m, name:'Matematik', type:'bar', marker:{color:'#1a73e8'}, text: m.map(v => v > 0 ? v : ''), textposition: 'auto' },
+            { x:g, y:s, name:'Sains', type:'bar', marker:{color:'#fd7e14'}, text: s.map(v => v > 0 ? v : ''), textposition: 'auto' }
         ], { barmode:'group', margin:{t:30, b:40, l:50, r:20} });
     }
 
@@ -573,18 +591,47 @@
         const l = data.filter(d => String(d.JANTINA).startsWith('L')).length;
         const p = data.filter(d => String(d.JANTINA).startsWith('P')).length;
         Plotly.newPlot('genderChart', [{ labels:['L','P'], values:[l,p], type:'pie', hole:0.4, marker:{colors:['#2196f3','#e91e63']} }], {margin:{t:0,b:0,l:0,r:0}});
-        
         const ppds = {}; data.forEach(d => { const n = (d.KET_PPD||'X').replace('PPD ',''); ppds[n] = (ppds[n]||0)+1; });
         const ps = Object.entries(ppds).sort((a,b)=>b[1]-a[1]);
         Plotly.newPlot('ppdChart', [{ x:ps.map(i=>i[0]), y:ps.map(i=>i[1]), type:'bar', marker:{color:'#1a73e8'} }], {margin:{t:10,b:60,l:40,r:10}});
-        
         const ins = {}; data.forEach(d => { const n = (d.JNS_INSTITUSI||'X').split(' ')[0]; ins[n] = (ins[n]||0)+1; });
         Plotly.newPlot('insChart', [{ labels:Object.keys(ins), values:Object.values(ins), type:'pie' }], {margin:{t:0,b:0,l:0,r:0}, showlegend:false});
     }
 
     function closeStudentSection() { document.getElementById('studentDetailSection').style.display = 'none'; }
     function closeSchoolStudentSection() { document.getElementById('schoolStudentListSection').style.display = 'none'; }
-    function resetFilters() { location.reload(); }
+
+    // FUNGSI RESET YANG TELAH DIKEMAS KINI
+    function resetFilters() {
+        if (fullRawData.length === 0) return;
+        
+        // 1. Pulihkan data asal
+        activeData = [...fullRawData];
+        categoryFilteredData = [];
+        
+        // 2. Kosongkan input dropdown
+        document.getElementById('ppdDropdown').value = "";
+        document.getElementById('schoolDropdown').value = "";
+        document.getElementById('schoolDropdown').innerHTML = '<option value="">-- Sila Pilih Sekolah --</option>';
+        
+        // 3. Sorok seksyen perincian
+        document.getElementById('schoolChartContainer').style.display = 'none';
+        document.getElementById('schoolChartEmpty').style.display = 'block';
+        document.getElementById('studentDetailSection').style.display = 'none';
+        document.getElementById('schoolStudentListSection').style.display = 'none';
+        
+        // 4. Reset gaya visual pada butang kategori/stat-card
+        document.querySelectorAll('.stat-card, .category-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('cardSemua').classList.add('active');
+        document.getElementById('filterIndicator').innerText = "Keseluruhan";
+        
+        // 5. Kemas kini dashboard & carta
+        refreshDashboard();
+        
+        // 6. Tatal ke atas semula
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     function filterByForm() { activeData = fullRawData; refreshDashboard(); }
 </script>
 </body>

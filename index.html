@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ms">
 <head>
@@ -17,14 +18,14 @@
         .dashboard-header { 
             background: linear-gradient(135deg, #1a73e8, #0d47a1); 
             color: white; 
-            padding: 30px 0 110px 0; /* Ditingkatkan untuk memberi ruang kepada atribusi */
+            padding: 30px 0 110px 0; 
             border-bottom: 5px solid var(--accent-color); 
             position: relative; 
         }
         
         .header-attribution {
             position: absolute;
-            bottom: 50px; /* Dinaikkan supaya tidak bertindih dengan kotak putih portal-control */
+            bottom: 50px; 
             right: 20px;
             font-size: 0.65rem;
             opacity: 0.9;
@@ -98,8 +99,8 @@
         }
         
         .btn-export { background-color: var(--success-color); color: white; font-weight: bold; border-radius: 8px; }
-        .btn-reset { background-color: #ff9800; color: white; font-weight: bold; border-radius: 8px; }
-        .btn-reset:hover { background-color: #f57c00; color: white; }
+        .btn-reset { background-color: #ffca28; color: #000; font-weight: bold; border-radius: 8px; }
+        .btn-reset:hover { background-color: #fbc02d; color: #000; }
 
         #dataStatusIndicator {
             font-size: 0.75rem;
@@ -110,7 +111,6 @@
             vertical-align: middle;
         }
 
-        /* Perincian Sekolah Styling */
         .school-selector-box {
             background: #fff;
             padding: 20px;
@@ -121,7 +121,6 @@
 
         .filter-label { font-size: 0.75rem; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 5px; }
 
-        /* Visual Kotak Grid */
         .visual-kotak-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -178,26 +177,24 @@
                     <label class="fw-bold text-secondary small text-uppercase">Data Kumpulan:</label>
                     <span id="dataStatusIndicator" class="badge bg-secondary">TIADA DATA</span>
                 </div>
-                <div class="d-flex gap-2 align-items-start">
-                    <!-- Tingkatan 1 Container -->
-                    <div class="flex-grow-1 text-center">
+                <!-- Flex Container for Buttons -->
+                <div class="d-flex gap-2 align-items-center">
+                    <div class="flex-grow-1">
                         <button class="btn btn-primary fw-bold w-100 py-2" onclick="loadFromPath('T1')">📥 TINGKATAN 1</button>
-                        <div class="mt-1">
-                            <a href="javascript:void(0)" class="text-primary fw-bold" style="font-size: 0.55rem; text-decoration: none;" onclick="document.getElementById('manualT1').click()">[KLIK MUAT NAIK T1]</a>
-                            <input type="file" id="manualT1" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T1')">
-                        </div>
                     </div>
-                    <!-- Tingkatan 2 Container -->
-                    <div class="flex-grow-1 text-center">
+                    <div class="flex-grow-1">
                         <button class="btn btn-primary fw-bold w-100 py-2" onclick="loadFromPath('T2')">📥 TINGKATAN 2</button>
-                        <div class="mt-1">
-                            <a href="javascript:void(0)" class="text-primary fw-bold" style="font-size: 0.55rem; text-decoration: none;" onclick="document.getElementById('manualT2').click()">[KLIK MUAT NAIK T2]</a>
-                            <input type="file" id="manualT2" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T2')">
-                        </div>
                     </div>
-                    <!-- Reset Button -->
                     <button class="btn btn-reset fw-bold px-3 py-2" onclick="resetFilters()">🔄 RESET</button>
                 </div>
+                <!-- Single Instruction Label centered below T1 and T2 buttons -->
+                <div class="text-center mt-2" style="padding-right: 90px;"> <!-- Padding adjusted to account for Reset button space -->
+                    <span class="text-primary fw-bold" style="font-size: 0.55rem; letter-spacing: 0.2px;">KLIK KOTAK UNTUK MUAT NAIK DATA GITHUB</span>
+                </div>
+                
+                <!-- Hidden inputs for logic maintenance (if required) -->
+                <input type="file" id="manualT1" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T1')">
+                <input type="file" id="manualT2" hidden accept=".xlsx, .csv" onchange="handleQuickUpload(this, 'T2')">
             </div>
             <div class="col-md-5 ps-md-4">
                 <label class="fw-bold text-secondary small mb-2 text-uppercase">Muat Naik Manual (Lain-lain):</label>
@@ -289,7 +286,7 @@
         <div class="col-md-4"><div class="card p-4 shadow-sm"><h5 class="chart-title" id="insTitle">Jenis Sekolah</h5><div id="insChart" style="height: 300px;"></div></div></div>
     </div>
 
-    <!-- Perincian Sekolah (Filter Bawah Sekali) -->
+    <!-- Perincian Sekolah -->
     <div id="schoolAnalysisSection" class="row mt-4 mb-3" style="display:none;">
         <div class="col-12">
             <div class="card p-4 shadow-sm school-selector-box">
@@ -328,7 +325,7 @@
         </div>
     </div>
 
-    <!-- Jadual Murid Sekolah Pilihan (Bawah Sekali) -->
+    <!-- Jadual Murid Sekolah Pilihan -->
     <div id="schoolStudentListSection" class="school-student-list-container mb-5">
         <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
             <h5 class="mb-0 text-success fw-bold" id="schoolStudentTableTitle">Senarai Murid Sekolah</h5>
@@ -384,7 +381,6 @@
         } finally { showLoading(false); }
     }
 
-    // Fungsi untuk Muat Naik Manual Tingkatan 1 / 2
     function handleQuickUpload(input, type) {
         const file = input.files[0];
         if (!file) return;
@@ -601,34 +597,21 @@
     function closeStudentSection() { document.getElementById('studentDetailSection').style.display = 'none'; }
     function closeSchoolStudentSection() { document.getElementById('schoolStudentListSection').style.display = 'none'; }
 
-    // FUNGSI RESET YANG TELAH DIKEMAS KINI
     function resetFilters() {
         if (fullRawData.length === 0) return;
-        
-        // 1. Pulihkan data asal
         activeData = [...fullRawData];
         categoryFilteredData = [];
-        
-        // 2. Kosongkan input dropdown
         document.getElementById('ppdDropdown').value = "";
         document.getElementById('schoolDropdown').value = "";
         document.getElementById('schoolDropdown').innerHTML = '<option value="">-- Sila Pilih Sekolah --</option>';
-        
-        // 3. Sorok seksyen perincian
         document.getElementById('schoolChartContainer').style.display = 'none';
         document.getElementById('schoolChartEmpty').style.display = 'block';
         document.getElementById('studentDetailSection').style.display = 'none';
         document.getElementById('schoolStudentListSection').style.display = 'none';
-        
-        // 4. Reset gaya visual pada butang kategori/stat-card
         document.querySelectorAll('.stat-card, .category-item').forEach(el => el.classList.remove('active'));
         document.getElementById('cardSemua').classList.add('active');
         document.getElementById('filterIndicator').innerText = "Keseluruhan";
-        
-        // 5. Kemas kini dashboard & carta
         refreshDashboard();
-        
-        // 6. Tatal ke atas semula
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
